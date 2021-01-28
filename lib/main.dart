@@ -27,7 +27,7 @@ class _NestedRouterDemoState extends State<NestedRouterDemo> {
 }
 
 // Defines the current state of books and notifies the change in atate to all its listners
-//
+// It defines which book is selected currently and also changes the currenly selected book and notify to all listners
 class BooksAppState extends ChangeNotifier {
   int _selectedIndex;
 
@@ -111,6 +111,8 @@ class BookRouteInformationParser extends RouteInformationParser<BookRoutePath> {
   }
 }
 
+// [RouterDelegate] to handle Outer Naviagtion
+// i.e. navigation between Home Page and Settings Page
 class BookRouterDelegate extends RouterDelegate<BookRoutePath>
     with ChangeNotifier, PopNavigatorRouterDelegateMixin<BookRoutePath> {
   final GlobalKey<NavigatorState> navigatorKey;
@@ -156,6 +158,7 @@ class BookRouterDelegate extends RouterDelegate<BookRoutePath>
     );
   }
 
+  // Sets the new Route based on [BookroutePath]
   @override
   Future<void> setNewRoutePath(BookRoutePath path) async {
     if (path is BooksListPath) {
@@ -170,6 +173,66 @@ class BookRouterDelegate extends RouterDelegate<BookRoutePath>
 }
 
 // Widget that contains the AdaptiveNavigationScaffold
+class InnerRouterDelegate extends RouterDelegate<BookRoutePath>
+    with ChangeNotifier, PopNavigatorRouterDelegateMixin<BookRoutePath> {
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  BooksAppState get appState => _appState;
+  BooksAppState _appState;
+  set appState(BooksAppState value) {
+    if (value == _appState) {
+      return;
+    }
+    _appState = value;
+    notifyListeners();
+  }
+
+  InnerRouterDelegate(this._appState);
+
+  @override
+  Widget build(BuildContext context) {
+    return Navigator(
+      key: navigatorKey,
+      pages: [
+        if (appState.selectedIndex == 0) ...[
+          FadeAnimationPage(
+            child: BooksListScreen(
+              books: appState.books,
+              onTapped: _handleBookTapped,
+            ),
+            key: ValueKey('BooksListPage'),
+          ),
+          if (appState.selectedBook != null)
+            MaterialPage(
+              key: ValueKey(appState.selectedBook),
+              child: BookDetailsScreen(book: appState.selectedBook),
+            ),
+        ] else
+          FadeAnimationPage(
+            child: SettingsScreen(),
+            key: ValueKey('SettingsPage'),
+          ),
+      ],
+      onPopPage: (route, result) {
+        appState.selectedBook = null;
+        notifyListeners();
+        return route.didPop(result);
+      },
+    );
+  }
+
+  @override
+  Future<void> setNewRoutePath(BookRoutePath path) async {
+    // This is not required for inner router delegate because it does not
+    // parse route
+    assert(false);
+  }
+
+  void _handleBookTapped(Book book) {
+    appState.selectedBook = book;
+    notifyListeners();
+  }
+}
+
 class AppShell extends StatefulWidget {
   final BooksAppState appState;
 
@@ -234,66 +297,7 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-class InnerRouterDelegate extends RouterDelegate<BookRoutePath>
-    with ChangeNotifier, PopNavigatorRouterDelegateMixin<BookRoutePath> {
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  BooksAppState get appState => _appState;
-  BooksAppState _appState;
-  set appState(BooksAppState value) {
-    if (value == _appState) {
-      return;
-    }
-    _appState = value;
-    notifyListeners();
-  }
-
-  InnerRouterDelegate(this._appState);
-
-  @override
-  Widget build(BuildContext context) {
-    return Navigator(
-      key: navigatorKey,
-      pages: [
-        if (appState.selectedIndex == 0) ...[
-          FadeAnimationPage(
-            child: BooksListScreen(
-              books: appState.books,
-              onTapped: _handleBookTapped,
-            ),
-            key: ValueKey('BooksListPage'),
-          ),
-          if (appState.selectedBook != null)
-            MaterialPage(
-              key: ValueKey(appState.selectedBook),
-              child: BookDetailsScreen(book: appState.selectedBook),
-            ),
-        ] else
-          FadeAnimationPage(
-            child: SettingsScreen(),
-            key: ValueKey('SettingsPage'),
-          ),
-      ],
-      onPopPage: (route, result) {
-        appState.selectedBook = null;
-        notifyListeners();
-        return route.didPop(result);
-      },
-    );
-  }
-
-  @override
-  Future<void> setNewRoutePath(BookRoutePath path) async {
-    // This is not required for inner router delegate because it does not
-    // parse route
-    assert(false);
-  }
-
-  void _handleBookTapped(Book book) {
-    appState.selectedBook = book;
-    notifyListeners();
-  }
-}
-
+// Creates an Animated Page with fade animation
 class FadeAnimationPage extends Page {
   final Widget child;
 
